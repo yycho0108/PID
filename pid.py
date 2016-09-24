@@ -11,6 +11,10 @@ def lerp(a,b,c):
 
 def noise(scale = 1.0):
     return scale * np.random.randn()
+
+def noise_v(shape, scale = 1.0):
+    return scale * np.random.randn(*shape)
+
 #return 0.0
 
 def control(cur, feed, dt):
@@ -36,14 +40,14 @@ def simulate(n):
     ts = [dt * _it for _it in range(n)]
 
     k_p = 0.1
-    k_i = 0.4
+    k_i = 0.1
     k_d = 0.01
 
     i = arr([0.0 for _ in range(dims)]) # integral accumulator
     d = arr([0.0 for _ in range(dims)]) # derivative term
     o = arr([0.0 for _ in range(dims)]) # objective 
 
-    p_r = arr([10 * np.random.random() for _ in range(dims)]) # real y "position"
+    p_r = 10 * np.random.randn(dims)# real y "position"
     p_m = p_r.copy() # measured y, copy p_r
 
     e_r = arr([o[_it] - p_r[_it] for _it in range(dims)]) # real error
@@ -62,31 +66,30 @@ def simulate(n):
     vs = arr([list(v) for _ in range(n)])
 
     for t_idx, t in enumerate(ts): # repeat for duration
-        for _it in range(dims): # 1-dimensional space
-            #e_m = o - p_m
-            #e_r = o - p_r
-            #i += e_m * dt
-            #d = e_m - e_ms[-1]
-            #x = k_p * e_m + k_i * i/(t+dt) + k_d * d
-            #v = control(v, x, dt)
-            #p_r += v * dt + noise(0.1)
-            #p_m = measure(p_r)
+        e_m = o - p_m
+        e_r = o - p_r
+        i += e_m * dt
+        i *= 0.99
+        d = e_m - e_ms[-1]
+        x = k_p * e_m + k_i * i + k_d * d
+        v = control(v, x, dt)
+        n = noise_v((dims,), 0.1)
+        p_r += v * dt + n 
+        p_m = measure(p_r)
 
-            e_m[_it] = o[_it] - p_m[_it] # measured error
-            e_r[_it] = o[_it] - p_r[_it] # real error
-
-            i[_it] += e_m[_it] * dt # integral term, normalized
-            d[_it] = (e_m[_it] - e_ms[t_idx][_it])/dt # derivative term
-            x = k_p * e_m[_it] + k_i * (i[_it]/(t+dt)) + k_d * d[_it]
-
-            v[_it] = control(v[_it], x, dt)
-            # noise represents environmental noise
-            p_r[_it] += v[_it] * dt + noise(0.1) # TODO : scale noise?
-            p_m[_it] = measure(p_r[_it])
-
-        #np.concatenate_rs.append(list(e_r))
-
-        #currently editing here
+#         for _it in range(dims): # 1-dimensional space
+#             e_m[_it] = o[_it] - p_m[_it] # measured error
+#             e_r[_it] = o[_it] - p_r[_it] # real error
+# 
+#             i[_it] += e_m[_it] * dt # integral term, normalized
+#             d[_it] = (e_m[_it] - e_ms[t_idx][_it])/dt # derivative term
+#             x = k_p * e_m[_it] + k_i * (i[_it]) + k_d * d[_it]
+# 
+#             v[_it] = control(v[_it], x, dt)
+#             # noise represents environmental noise
+#             p_r[_it] += v[_it] * dt + noise(0.1) # TODO : scale noise?
+#             p_m[_it] = measure(p_r[_it])
+# 
         p_rs[t_idx] = p_r
         p_ms[t_idx] = p_m
 
@@ -105,11 +108,13 @@ class CometAnimation(TimedAnimation):
         ax.set_xlabel('x')
         ax.set_ylabel('y')
 
-        self.l = 500 
+        self.l = 200 
         p_rs,p_ms = simulate(self.l)
 
         ax.set_xlim(np.min(p_rs[:,0]), np.max(p_rs[:,0]))
         ax.set_ylim(np.min(p_rs[:,1]), np.max(p_rs[:,1]))
+
+        ax.set_aspect('equal')
 
         self.p_rs = p_rs
         self.p_ms = p_ms
@@ -118,6 +123,7 @@ class CometAnimation(TimedAnimation):
         self.comet2, = plt.plot([],[],label='measured')
         self.centers, = plt.plot([],[],'or',label='centers')
         self.origin, = plt.plot([0],[0],"*b")
+        plt.legend()
 
         animation.TimedAnimation.__init__(self, fig, interval=50, blit=True)
 
@@ -142,9 +148,12 @@ class CometAnimation(TimedAnimation):
 
 def main():
     ani = CometAnimation()
-    #ani.save('pid.mp4')
-    plt.legend()
     plt.show()
+
+    save = str(raw_input("SAVE?(Y/N)\n"))
+
+    if(save == 'y' or save == 'Y'):
+        ani.save('pid.mp4')
 
 if __name__ == "__main__":
     main()
