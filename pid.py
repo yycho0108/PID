@@ -142,7 +142,7 @@ class CometAnimation(TimedAnimation):
 
 def main():
     ani = CometAnimation()
-    ani.save('pid.mp4')
+    #ani.save('pid.mp4')
     plt.legend()
     plt.show()
 
